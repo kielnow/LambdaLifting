@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "Map.h"
-
 namespace app
 {
 
@@ -19,56 +17,60 @@ namespace app
 		~App();
 
 		void initialize();
+
 		void finalize();
 
 		void update();
+
 		void draw();
 
 	private:
-		void updateGUI();
+		void loadINI();
+		void saveINI();
 
-		bool load(const s3d::FilePath& filepath);
-
-		void undo();
-		void redo();
-		void reset();
-
-		void play();
-		void pause();
-		void resume();
-		void stop();
-
-		void save();
-		void loadCommands();
-
-		bool isOperational() const;
-
-		static const u32 MAX_HISTORY = 1024;
-
-		enum class State {
-			Play,
-			Pause,
-			Stop,
-		};
+		bool loadMap(const s3d::String& filepath);
 
 	private:
-		s3d::FilePath mFilepath;
-		s3d::String mFilename;
-		std::unique_ptr<class Map> mInitialMapPtr;
-		std::unique_ptr<class Map> mMapPtr;
+		std::unique_ptr<class Simulator> mpSimulator;
+		std::unique_ptr<class InteractiveController> mpInteractiveController;
+		std::unique_ptr<class AutoController> mpAutoController;
+		std::unique_ptr<class AppGUI> mpGUI;
 
-		s3d::String mCommands;
-		std::deque<class Map> mHistory;
-		s32 mUndoPos;
+		friend class AppGUI;
+	};
 
-		std::vector<bool> mValids;
+	//===================================================================================
+	//! @class AppGUI
+	//===================================================================================
+	class AppGUI
+	{
+	public:
+		AppGUI(class App* parent);
+		~AppGUI();
 
-		s3d::String mInputCommands;
+		void initialize();
 
-		std::unique_ptr<class InputCommand> mInputPtr;
-		class s3d::GUI* mGUIPtr;
+		void finalize();
 
-		State mState;
+		void update();
+
+		void draw();
+
+		f64 getScale() const;
+		bool getDropShadow() const;
+		bool getTrail() const;
+		bool getAllTrail() const;
+		s32 getTrailLength() const;
+		const s3d::String& getCommands() const;
+
+		void setFileName(const s3d::String& filename);
+		void setScale(f64 scale);
+		void setCommands(const s3d::String& cmds);
+
+	private:
+		class App* parent;
+		s3d::GUI gui;
+		bool mDirty;
 	};
 
 }

@@ -5,17 +5,41 @@
 #include "stdafx.h"
 #include "Map.h"
 
-#include "Command.h"
-
 namespace app
 {
+
+	//-----------------------------------------------------------------------------
+	//! Commandを文字に
+	//-----------------------------------------------------------------------------
+	s3d::wchar charOfCommand(Command cmd)
+	{
+		return static_cast<s3d::wchar>(cmd);
+	}
+
+	//-----------------------------------------------------------------------------
+	//! 文字をCommandに
+	//-----------------------------------------------------------------------------
+	Command commandOfChar(s3d::wchar c)
+	{
+		switch (c) {
+		case L'U':
+		case L'D':
+		case L'L':
+		case L'R':
+		case L'W':
+		case L'A':
+		case L'S':
+			return static_cast<Command>(c);
+		}
+		return Command::None;
+	}
 
 	//-----------------------------------------------------------------------------
 	//! Cellを文字列に
 	//-----------------------------------------------------------------------------
 	const s3d::wchar* stringOfCell(Cell cell)
 	{
-		switch(cell){
+		switch (cell) {
 		case Cell::Empty:		return L"　";
 		case Cell::Robot:		return L"Ｒ";
 		case Cell::Rock:		return L"＊";
@@ -58,7 +82,7 @@ namespace app
 	//-----------------------------------------------------------------------------
 	const s3d::wchar* stringOfCondition(Condition cond)
 	{
-		switch(cond){
+		switch (cond) {
 		case Condition::Playing:	return L"Playing";
 		case Condition::Winning:	return L"Winning";
 		case Condition::Abort:		return L"Abort";
@@ -68,6 +92,47 @@ namespace app
 	}
 
 
+	//-----------------------------------------------------------------------------
+	//! クリア
+	//-----------------------------------------------------------------------------
+	void Map::clear()
+	{
+		cell.clear();
+		robotPos.set(0, 0);
+		lambda = 0;
+		lambdaCollected = 0;
+		stepCount = 0;
+		score = 0;
+		condition = Condition::Playing;
+
+		water = 0;
+		floodingCount = 0;
+		waterproofCount = 0;
+
+		growthCount = 0;
+		razor = 0;
+		beard = 0;
+	}
+
+
+	//-----------------------------------------------------------------------------
+	//! クリア
+	//-----------------------------------------------------------------------------
+	void MapInfo::clear()
+	{
+		liftPos.set(0, 0);
+
+		flooding = 0;
+		waterproof = 10;
+
+		growth = 25;
+
+		std::memset(trampolinePos, 0, sizeof(trampolinePos));
+		std::memset(targetPos, 0, sizeof(targetPos));
+		std::fill(jump, jump + sizeof(jump), 0xFF);
+	}
+
+#if 0
 	//===================================================================================
 	// Map
 	//===================================================================================
@@ -728,5 +793,6 @@ namespace app
 			s3d::Print(L"\n");
 		}
 	}
+#endif
 
 }
