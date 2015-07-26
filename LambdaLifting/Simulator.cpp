@@ -944,7 +944,6 @@ namespace app
 		return s3d::RectF{ rect.x, rect.y, std::max(rect.w, w * cw), rect.h + h * ch };
 	}
 
-
 #pragma endregion
 
 } // namespace app
