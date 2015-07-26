@@ -59,6 +59,8 @@ namespace app
 		const s3d::String& getFilePath() const { return mFilePath;  }
 		const struct Map& getMap() const;
 		bool isPlaying() const;
+		const s3d::String& getCommands() const { return mCommands; }
+		u32 getCommandNum() const { return mCommands.length; }
 		u32 getHistoryNum() const { return mHistory.size(); }
 
 	private:

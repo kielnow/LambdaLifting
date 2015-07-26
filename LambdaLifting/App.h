@@ -30,6 +30,8 @@ namespace app
 
 		bool loadMap(const s3d::String& filepath);
 
+		void reset();
+
 	private:
 		std::unique_ptr<class Simulator> mpSimulator;
 		std::unique_ptr<class InteractiveController> mpInteractiveController;
@@ -54,23 +56,28 @@ namespace app
 
 		void update();
 
-		void draw();
-
 		f64 getScale() const;
 		bool getDropShadow() const;
 		bool getTrail() const;
 		bool getAllTrail() const;
 		s32 getTrailLength() const;
 		const s3d::String& getCommands() const;
+		f64 getSpeed() const;
 
 		void setFileName(const s3d::String& filename);
 		void setScale(f64 scale);
+		void setTrail(bool trail);
 		void setCommands(const s3d::String& cmds);
+		void setSpeed(f64 speed);
+
+		void play();
 
 	private:
 		class App* parent;
 		s3d::GUI gui;
-		bool mDirty;
+		bool mDirtyScale;
+		bool mDirtyPlay;
+		bool mDirtySpeed;
 	};
 
 }

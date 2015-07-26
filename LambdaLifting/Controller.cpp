@@ -135,6 +135,8 @@ namespace app
 		: mCommandPos(0)
 		, mState(State::Stop)
 		, mReset(true)
+		, mInterval(0)
+		, mIntervalCount(0)
 	{
 	}
 
@@ -157,17 +159,22 @@ namespace app
 				mReset = false;
 				simulator.reset();
 				mCommandPos = 0;
-				mNormalCommands.clear();
+				mValidCommands.clear();
 			}
 
 			if (mCommandPos < mCommands.length && simulator.isPlaying())
 			{
+				if (mIntervalCount++ < mInterval) {
+					break;
+				}
+				mIntervalCount = 0;
+
 				if (simulator.redoable()) {
 					simulator.redo();
 				} else {
 					s3d::wchar cmd = mCommands[mCommandPos++];
 					if (simulator.step(cmd)) {
-						mNormalCommands += cmd;
+						mValidCommands += cmd;
 					}
 				}
 			}
@@ -218,7 +225,7 @@ namespace app
 	void AutoController::stop()
 	{
 		mState = State::Stop;
-		mNormalCommands.clear();
+		mValidCommands.clear();
 	}
 
 #pragma endregion

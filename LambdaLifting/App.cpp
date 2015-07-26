@@ -11,6 +11,8 @@
 
 namespace {
 
+	const s3d::wchar* TAG = L"[LambdaLifting]";
+
 	const s3d::wchar* CONFIG_FILE = L"config.ini";
 
 }
@@ -45,6 +47,8 @@ namespace app
 		s3d::INIWriter ini(CONFIG_FILE);
 		ini.write(L"Map", L"filepath", mpSimulator->getFilePath());
 		ini.write(L"GUI", L"commands", mpGUI->getCommands());
+		ini.write(L"GUI", L"speed", mpGUI->getSpeed());
+		ini.write(L"GUI", L"trail", mpGUI->getTrail());
 	}
 
 	//-----------------------------------------------------------------------------
@@ -63,6 +67,18 @@ namespace app
 		if (commands)
 		{
 			mpGUI->setCommands(commands.value());
+		}
+
+		// speed
+		if (const auto speed = ini.getOpt<f64>(L"GUI.speed"))
+		{
+			mpGUI->setSpeed(speed.value());
+		}
+
+		// trail
+		if (const auto trail = ini.getOpt<bool>(L"GUI.trail"))
+		{
+			mpGUI->setTrail(trail.value());
 		}
 	}
 
@@ -85,6 +101,16 @@ namespace app
 
 		// INIファイルを読み込む
 		loadINI();
+
+		// コマンドライン入力を読み込む
+		const auto argv = s3d::CommandLine::Get();
+		if (argv.size() == 3)
+		{
+			if (loadMap(argv[1])) {
+				mpGUI->setCommands(argv[2]);
+				mpGUI->play();
+			}
+		}
 	}
 
 	//-----------------------------------------------------------------------------
@@ -111,13 +137,35 @@ namespace app
 		}
 		else
 		{
-			if ((s3d::Input::KeyControl + s3d::Input::KeyZ).clicked)
+			if (s3d::Input::KeyHome.clicked)
+			{
+				mpSimulator->undo(mpSimulator->getCommandNum());
+			}
+			else if (s3d::Input::KeyEnd.clicked)
+			{
+				mpSimulator->redo(mpSimulator->getCommandNum());
+			}
+			else if ((s3d::Input::KeyControl + s3d::Input::KeyZ).clicked)
 			{
 				mpSimulator->undo();
 			}
 			else if((s3d::Input::KeyControl + s3d::Input::KeyY).clicked)
 			{
 				mpSimulator->redo();
+			}
+			else if (s3d::Input::KeyControl.pressed)
+			{
+				const u32 step = s3d::Input::KeyAlt.pressed ? 5 : 1;
+
+				const Command cmd = mpInteractiveController->readCommand();
+				switch (cmd) {
+				case Command::Left:
+					mpSimulator->undo(step);
+					break;
+				case Command::Right:
+					mpSimulator->redo(step);
+					break;
+				}
 			}
 			else
 			{
@@ -168,9 +216,9 @@ namespace app
 	//-----------------------------------------------------------------------------
 	bool App::loadMap(const s3d::String& filepath)
 	{
-		if (mpSimulator->loadMap(filepath)) {
-			mpGUI->setFileName(s3d::FileSystem::FileName(filepath));
+		mpGUI->setFileName(s3d::FileSystem::FileName(filepath));
 
+		if (mpSimulator->loadMap(filepath)) {
 			const s3d::Vec2& csz{ s3d::Window::Size() * 0.8 };
 			const s3d::Vec2& sz{ mpSimulator->calcRect().size };
 			mpGUI->setScale(std::min(csz.x / sz.x, csz.y / sz.y));
@@ -179,7 +227,17 @@ namespace app
 
 			return true;
 		}
+		LOG(TAG, L"マップファイルの読み込みに失敗しました。", filepath);
 		return false;
+	}
+
+	//-----------------------------------------------------------------------------
+	//! リセット
+	//-----------------------------------------------------------------------------
+	void App::reset()
+	{
+		mpAutoController->stop();
+		mpSimulator->reset();
 	}
 
 
@@ -189,7 +247,11 @@ namespace app
 	//! ctor
 	//-----------------------------------------------------------------------------
 	AppGUI::AppGUI(class App* parent)
-		: parent(parent), gui(s3d::GUIStyle::Default)
+		: parent(parent)
+		, gui(s3d::GUIStyle::Default)
+		, mDirtyScale(false)
+		, mDirtyPlay(false)
+		, mDirtySpeed(false)
 	{
 	}
 
@@ -207,6 +269,7 @@ namespace app
 	{
 		gui.setPos(900, 16);
 		gui.setTitle(L"Settings");
+		gui.style.background.color->setAlpha(224);
 
 		gui.add(L"loadMap", s3d::GUIButton::Create(L"Load Map"));
 		gui.addln(L"filename", s3d::GUIText::Create(L"File Name"));
@@ -217,6 +280,7 @@ namespace app
 
 		gui.add(L"textScale", s3d::GUIText::Create(L"Scale"));
 		gui.addln(L"scale", s3d::GUISlider::Create(0.5, 1.5, 1.0));
+		mDirtyScale = true;
 
 		gui.addln(L"dropShadow", s3d::GUICheckBox::Create({ L"Drop Shadow" }, { 0u }));
 
@@ -229,16 +293,14 @@ namespace app
 
 		gui.addln(L"textCommands", s3d::GUIText::Create(L"Commands:0"));
 		gui.addln(L"commands", s3d::GUITextArea::Create(4, 20));
+		gui.add(L"replace", s3d::GUIButton::Create(L"Replace"));
 		gui.addln(L"normalize", s3d::GUIButton::Create(L"Normalize"));
-		/*
-		gui.add(L"delete", s3d::GUIButton::Create(L"Delete"));
-		gui.add(L"copy", s3d::GUIButton::Create(L"Copy"));
-		gui.add(L"save", s3d::GUIButton::Create(L"Save"));
-		gui.addln(L"load", s3d::GUIButton::Create(L"Load"));
-		*/
 
 		gui.add(L"play", s3d::GUIButton::Create(L"Play"));
-		gui.add(L"stop", s3d::GUIButton::Create(L"Stop", false));
+		gui.addln(L"stop", s3d::GUIButton::Create(L"Stop", false));
+		gui.add(L"textSpeed", s3d::GUIText::Create(L"Speed"));
+		gui.addln(L"speed", s3d::GUISlider::Create(1, 5, 3));
+		mDirtySpeed = true;
 	}
 
 	//-----------------------------------------------------------------------------
@@ -253,11 +315,41 @@ namespace app
 	//-----------------------------------------------------------------------------
 	void AppGUI::update()
 	{
-		if (gui.textArea(L"commands").active) {
+		//-----------------------------------------------------------------------------
+		// ショートカットキー操作
+
+		if (s3d::Input::KeyF1.clicked)
+		{
+			gui.show(!gui.style.visible);
+		}
+		else if (s3d::Input::KeyF5.clicked)
+		{
+			play();
+		}
+		else if (s3d::Input::KeyControl.pressed) {
+			if (s3d::Input::KeyR.clicked)
+			{
+				parent->reset();
+			}
+			else if (s3d::Input::KeyT.clicked)
+			{
+				setTrail(!getTrail());
+			}
+			else if (s3d::Input::KeyUp.clicked)
+			{
+				setSpeed(getSpeed() + 1);
+			}
+			else if (s3d::Input::KeyDown.clicked)
+			{
+				setSpeed(getSpeed() - 1);
+			}
+		}
+
+		if (gui.textArea(L"commands").active)
+		{
 			if (s3d::Input::KeyDelete.clicked)
 			{
-				gui.textArea(L"commands").setText(L"");
-				gui.text(L"textCommands").text = L"Commands:0";
+				setCommands(L"");
 			}
 			else if ((s3d::Input::KeyControl + s3d::Input::KeyC).clicked)
 			{
@@ -266,29 +358,42 @@ namespace app
 		}
 
 		//-----------------------------------------------------------------------------
+		// テキスト更新
+
 		// scale
-		f64 scale = gui.slider(L"scale").value;
-		scale = static_cast<f64>(static_cast<s32>(scale * 10.0)) * 0.1f;
-		gui.slider(L"scale").setValue(scale);
-		gui.text(L"textScale").text = s3d::Format(s3d::PyFmt, L"Scale:{:.0f}%", scale * 100);
+		if (gui.slider(L"scale").hasChanged || mDirtyScale)
+		{
+			mDirtyScale = false;
+
+			auto slider = gui.slider(L"scale");
+			f64 scale = slider.value;
+			scale = static_cast<f64>(static_cast<s32>(scale * 10.0)) * 0.1f;
+			slider.setValue(scale);
+			gui.text(L"textScale").text = s3d::Format(s3d::PyFmt, L"Scale:{:.0f}%", scale * 100);
+		}
 
 		// trailLength
-		const s32 trailLength = gui.slider(L"trailLength").valueInt;
-		const u32 num = parent->mpSimulator->getHistoryNum();
-		const u32 unit = num > 100 ? 100 : 10;
-		gui.slider(L"trailLength").setRightValue((num + unit) / unit * unit);
-		gui.slider(L"trailLength").setValue(trailLength);
-		gui.text(L"textTrailLength").text = s3d::Format(s3d::PyFmt, L"Trail Length:{:d}", trailLength);
+		if (gui.slider(L"trailLength").hasChanged)
+		{
+			auto slider = gui.slider(L"trailLength");
+			const s32 trailLength = slider.valueInt;
+			const u32 num = parent->mpSimulator->getHistoryNum();
+			const u32 unit = num > 100 ? 100 : (num > 20 ? 10 : 20);
+			slider.setRightValue((num + unit) / unit * unit);
+			slider.setValue(trailLength);
+			gui.text(L"textTrailLength").text = s3d::Format(s3d::PyFmt, L"Trail Length:{:d}", trailLength);
+		}
 
 		// commands
-		if (gui.textArea(L"commands").hasChanged) {
+		if (gui.textArea(L"commands").hasChanged)
+		{
 			gui.text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", gui.textArea(L"commands").text.length);
 		}
 
 		// play
-		if (parent->mpAutoController->isStop() && mDirty)
+		if (parent->mpAutoController->isStop() && mDirtyPlay)
 		{
-			mDirty = false;
+			mDirtyPlay = false;
 
 			gui.textArea(L"commands").enabled = true;
 			gui.button(L"normalize").enabled = true;
@@ -297,8 +402,25 @@ namespace app
 			gui.button(L"play").text = L"Play";
 		}
 
+		// speed
+		if (gui.slider(L"speed").hasChanged || mDirtySpeed)
+		{
+			mDirtySpeed = false;
+
+			auto slider = gui.slider(L"speed");
+			const f64 speed = static_cast<f64>(slider.valueInt);
+			const f64 speedMax = slider.rightValue;
+			const f64 speedMin = slider.leftValue;
+			slider.setValue(speed);
+			gui.text(L"textSpeed").text = s3d::Format(s3d::PyFmt, L"Speed:{:.0f}x", speed);
+			//gui.text(L"textSpeed").text = s3d::Format(s3d::PyFmt, L"Speed:{:.0f}x", speed);
+			const f64 norm = (speedMax - speed) / (speedMax - speedMin);
+			parent->mpAutoController->setInterval( static_cast<u32>(10 * norm) );
+		}
+
 		//-----------------------------------------------------------------------------
 		// ボタン操作
+
 		if (gui.button(L"loadMap").pushed)
 		{
 			parent->mpAutoController->stop();
@@ -309,47 +431,58 @@ namespace app
 		}
 		else if(gui.button(L"reset").pushed)
 		{
-			parent->mpAutoController->stop();
-			parent->mpSimulator->reset();
+			parent->reset();
 		}
-
-		if (gui.button(L"normalize").pushed)
+		else if (gui.button(L"replace").pushed)
 		{
-			const s3d::String& cmds = parent->mpAutoController->getNormalComamnds();
+			const s3d::String& cmds = parent->mpSimulator->getCommands();
 			if (!cmds.isEmpty) {
-				gui.textArea(L"commands").setText(cmds);
-				gui.text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", cmds.length);
+				setCommands(cmds);
 			}
 		}
-
-		if (gui.button(L"play").pushed)
+		else if (gui.button(L"normalize").pushed)
 		{
-			mDirty = true;
-
-			gui.textArea(L"commands").enabled = false;
-			gui.button(L"normalize").enabled = false;
-			gui.button(L"stop").enabled = true;
-
-			s3d::String& text = gui.button(L"play").text;
-			if (text == L"Pause")
-			{
-				parent->mpAutoController->pause();
-				text = L"Resume";
+			const s3d::String& cmds = parent->mpAutoController->getValidComamnds();
+			if (!cmds.isEmpty) {
+				setCommands(cmds);
 			}
-			else
-			{
-				if (text == L"Play") {
-					parent->mpAutoController->setCommand(gui.textArea(L"commands").text);
-				}
-
-				parent->mpAutoController->play();
-				text = L"Pause";
-			}
+		}
+		else if (gui.button(L"play").pushed)
+		{
+			play();
 		}
 		else if (gui.button(L"stop").pushed)
 		{
 			parent->mpAutoController->stop();
 			gui.button(L"play").text = L"Play";
+		}
+	}
+
+	//-----------------------------------------------------------------------------
+	// 再生
+	//-----------------------------------------------------------------------------
+	void AppGUI::play()
+	{
+		mDirtyPlay = true;
+
+		gui.textArea(L"commands").enabled = false;
+		gui.button(L"normalize").enabled = false;
+		gui.button(L"stop").enabled = true;
+
+		s3d::String& text = gui.button(L"play").text;
+		if (text == L"Pause")
+		{
+			parent->mpAutoController->pause();
+			text = L"Resume";
+		}
+		else
+		{
+			if (text == L"Play") {
+				parent->mpAutoController->setCommand(gui.textArea(L"commands").text);
+			}
+
+			parent->mpAutoController->play();
+			text = L"Pause";
 		}
 	}
 
@@ -362,13 +495,21 @@ namespace app
 	bool AppGUI::getAllTrail() const { return gui.checkBox(L"trail").checked(1); }
 	s32 AppGUI::getTrailLength() const { return gui.slider(L"trailLength").valueInt; }
 	const s3d::String& AppGUI::getCommands() const { return gui.textArea(L"commands").text; }
+	f64 AppGUI::getSpeed() const { return gui.slider(L"speed").value; }
 
 	//-----------------------------------------------------------------------------
 	// Getter
 	//-----------------------------------------------------------------------------
 	void AppGUI::setFileName(const s3d::String& filename){ gui.text(L"filename").text = filename; }
-	void AppGUI::setScale(f64 scale){ gui.slider(L"scale").setValue(scale); }
-	void AppGUI::setCommands(const s3d::String& cmds){ gui.textArea(L"commands").setText(cmds); }
+	void AppGUI::setScale(f64 scale){ gui.slider(L"scale").setValue(scale); mDirtyScale = true; }
+	void AppGUI::setTrail(bool trail){ return gui.checkBox(L"trail").check(0, trail); }
+	void AppGUI::setCommands(const s3d::String& cmds)
+	{
+		gui.textArea(L"commands").setText(cmds);
+		gui.text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", cmds.length);
+		parent->saveINI();
+	}
+	void AppGUI::setSpeed(f64 speed){ gui.slider(L"speed").setValue(speed); mDirtySpeed = true; }
 
 #pragma endregion
 

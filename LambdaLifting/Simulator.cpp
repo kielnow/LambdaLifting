@@ -147,6 +147,11 @@ namespace app
 			}
 		}
 
+		if (!w && !h) {
+			// マップサイズが0なら読み込み失敗
+			return false;
+		}
+
 		map.cell.resize(w, h, Cell::Empty);
 
 		u32 x = 0, y = 0;

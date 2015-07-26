@@ -33,7 +33,6 @@ namespace app
 
 		void update(class Simulator& simulator) override;
 
-	private:
 		Command readCommand();
 
 	private:
@@ -66,7 +65,9 @@ namespace app
 		bool isPlay() const { return mState == State::Play; }
 		bool isStop() const { return mState == State::Stop; }
 
-		const s3d::String& getNormalComamnds() const { return mNormalCommands; }
+		const s3d::String& getValidComamnds() const { return mValidCommands; }
+
+		void setInterval(u32 interval){ mInterval = interval; }
 
 	private:
 		enum class State {
@@ -80,10 +81,13 @@ namespace app
 		s3d::String mCommands;
 		u32 mCommandPos;
 
-		s3d::String mNormalCommands;
+		s3d::String mValidCommands;
 
 		State mState;
 		bool mReset;
+
+		u32 mInterval;
+		u32 mIntervalCount;
 	};
 
 }
