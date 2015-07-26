@@ -7,60 +7,77 @@
 namespace app
 {
 
-	enum class Command;
+	//===================================================================================
+	//! @enum Command
+	//===================================================================================
+	enum class Command
+	{
+		None	= L'?',
+		Up		= L'U',
+		Down	= L'D',
+		Left	= L'L',
+		Right	= L'R',
+		Wait	= L'W',
+		Abort	= L'A',
+		Shave	= L'S',
+	};
 
+	s3d::wchar charOfCommand(Command cmd);
+	Command commandOfChar(s3d::wchar c);
+
+	//===================================================================================
+	// Cell
+	//===================================================================================
 	static const u16 CELL_TYPE_MASK		= 0x00FF;
 	static const u16 CELL_LABEL_MASK 	= 0xFF00;
 	static const u16 CELL_LABEL_SHIFT 	= 8;
 
-	static const u32 MAX_TRAMPOLINE 	= 9;
-
-	//===================================================================================
+	#define MAKE_LABELED_CELL(type, label)	((label << CELL_LABEL_SHIFT) | ((u32)type & CELL_TYPE_MASK))
+	
 	//! @enum Cell
-	//===================================================================================
 	enum class Cell : u16
 	{
-		Empty			,
-		Robot			,
-		Rock			,
-		Lambda			,
-		Earth			,
-		Wall			,
-		ClosedLift		,
-		OpenLift		,
-		Trampoline		,
-		Target			,
-		Beard			,
-		Razor			,
-		HORock			,
+		Empty,
+		Robot,
+		Rock,
+		Lambda,
+		Earth,
+		Wall,
+		ClosedLift,
+		OpenLift,
+		Trampoline,
+		Target,
+		Beard,
+		Razor,
+		HORock,
 
-		TrampolineA		= (0x00 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineB		= (0x01 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineC		= (0x02 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineD		= (0x03 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineE		= (0x04 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineF		= (0x05 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineG		= (0x06 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineH		= (0x07 << CELL_LABEL_SHIFT) | (u32)Trampoline,
-		TrampolineI		= (0x08 << CELL_LABEL_SHIFT) | (u32)Trampoline,
+		// Labeled Trampoline
+		TrampolineA		= MAKE_LABELED_CELL(Trampoline, 0),
+		TrampolineB		= MAKE_LABELED_CELL(Trampoline, 1),
+		TrampolineC		= MAKE_LABELED_CELL(Trampoline, 2),
+		TrampolineD		= MAKE_LABELED_CELL(Trampoline, 3),
+		TrampolineE		= MAKE_LABELED_CELL(Trampoline, 4),
+		TrampolineF		= MAKE_LABELED_CELL(Trampoline, 5),
+		TrampolineG		= MAKE_LABELED_CELL(Trampoline, 6),
+		TrampolineH		= MAKE_LABELED_CELL(Trampoline, 7),
+		TrampolineI		= MAKE_LABELED_CELL(Trampoline, 8),
 
-		Target1			= (0x00 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target2			= (0x01 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target3			= (0x02 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target4			= (0x03 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target5			= (0x04 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target6			= (0x05 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target7			= (0x06 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target8			= (0x07 << CELL_LABEL_SHIFT) | (u32)Target,
-		Target9			= (0x08 << CELL_LABEL_SHIFT) | (u32)Target,
+		// Labeled Target
+		Target1 		= MAKE_LABELED_CELL(Target, 0),
+		Target2			= MAKE_LABELED_CELL(Target, 1),
+		Target3			= MAKE_LABELED_CELL(Target, 2),
+		Target4			= MAKE_LABELED_CELL(Target, 3),
+		Target5			= MAKE_LABELED_CELL(Target, 4),
+		Target6			= MAKE_LABELED_CELL(Target, 5),
+		Target7			= MAKE_LABELED_CELL(Target, 6),
+		Target8			= MAKE_LABELED_CELL(Target, 7),
+		Target9			= MAKE_LABELED_CELL(Target, 8),
 	};
 
-	inline u8 cellLabel(Cell c){ return (static_cast<u32>(c) & CELL_LABEL_MASK) >> CELL_LABEL_SHIFT; }
-	inline Cell cellType(Cell c){ return static_cast<Cell>(static_cast<u32>(c) & CELL_TYPE_MASK); }
+	inline Cell cellType(Cell c){ return static_cast<Cell>( static_cast<u16>(c) & CELL_TYPE_MASK ); }
+	inline u8 cellLabel(Cell c){ return (static_cast<u16>(c) & CELL_LABEL_MASK) >> CELL_LABEL_SHIFT; }
 
-	//! Cell‚ð•¶Žš—ñ‚É
 	const s3d::wchar* stringOfCell(Cell cell);
-
 
 	//===================================================================================
 	//! @enum Condition
@@ -73,10 +90,73 @@ namespace app
 		Losing,
 	};
 
-	//! Condition‚ð•¶Žš—ñ‚É
 	const s3d::wchar* stringOfCondition(Condition cond);
 
+	using int2 = s3d::Vector2D<s32>;
 
+	//===================================================================================
+	//! @struct Map
+	//===================================================================================
+	struct Map
+	{
+		struct MapInfo* info;
+
+		s3d::Grid<Cell> cell;
+		int2 robotPos;
+		u32	lambda;
+		u32 lambdaCollected;
+		u32 stepCount;
+		s32 score;
+		Condition condition;
+
+		// Flooding
+		u32 water;
+		u32 floodingCount;
+		u32 waterproofCount;
+
+		// Beard
+		u32 growthCount;
+		u32 razor;
+		u32 beard;
+
+	public:
+		Map(){ clear(); }
+
+		void clear();
+
+		void step(){ stepCount++; score--; }
+	};
+
+	//===================================================================================
+	// Map Info
+	//===================================================================================
+	static const u32 MAX_TRAMPOLINE = 9;
+
+	//! @struct Jump Table
+	struct MapInfo
+	{
+		int2 liftPos;
+
+		// Flooding
+		u32 flooding;
+		u32 waterproof;
+
+		// Beard
+		u32 growth;
+
+		// Trampoline
+		int2 trampolinePos[MAX_TRAMPOLINE];
+		int2 targetPos[MAX_TRAMPOLINE];
+		u8 jump[MAX_TRAMPOLINE];
+
+	public:
+		MapInfo(){ clear(); }
+
+		void clear();
+	};
+
+
+#if 0
 	//===================================================================================
 	//! @class Map
 	//===================================================================================
@@ -187,5 +267,6 @@ namespace app
 		u32 mRazor;
 		u32 mBeard;
 	};
+#endif
 
 }

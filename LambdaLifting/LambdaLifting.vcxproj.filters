@@ -5,15 +5,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="リソース ファイル\Exmaple">
-      <UniqueIdentifier>{d0258f22-25fb-4127-9323-4f5a8d4d3ad4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="リソース ファイル\Exmaple\shaders">
-      <UniqueIdentifier>{802b8336-b11b-432f-a6bc-8934a0172153}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="リソース ファイル\Exmaple\Well">
-      <UniqueIdentifier>{23c0cb43-fab6-4aed-9a8b-355e8d1e0fd8}</UniqueIdentifier>
-    </Filter>
     <Filter Include="リソース ファイル\Engine">
       <UniqueIdentifier>{3708c66c-853d-40cf-aff7-44a182ccfd61}</UniqueIdentifier>
     </Filter>
@@ -74,37 +65,16 @@
     <ClCompile Include="App.cpp">
       <Filter>app</Filter>
     </ClCompile>
-    <ClCompile Include="Command.cpp">
+    <ClCompile Include="Simulator.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClCompile Include="Controller.cpp">
       <Filter>app</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon.ico">
       <Filter>リソース ファイル</Filter>
-    </Image>
-    <Image Include="Example\Particle.png">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\siv3D-kun.png">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\Windmill.png">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\brick.jpg">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\Earth.jpg">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\grass.jpg">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\ground.jpg">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Image>
-    <Image Include="Example\Well\Well.jpg">
-      <Filter>リソース ファイル\Exmaple\Well</Filter>
     </Image>
     <Image Include="Engine\splash.png">
       <Filter>リソース ファイル\Engine</Filter>
@@ -116,42 +86,6 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Example\Prokofiev.mid">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </None>
-    <None Include="Example\test.csv">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </None>
-    <None Include="Example\test.ini">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </None>
-    <None Include="Example\test.json">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </None>
-    <None Include="Example\Well\Well.mtl">
-      <Filter>リソース ファイル\Exmaple\Well</Filter>
-    </None>
-    <None Include="Example\shaders\Default.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\Draw.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\InvertColor.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\Monochrome.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\PoissonDisk.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\RGBSplit.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
-    <None Include="Example\shaders\Swirl.hlsl">
-      <Filter>リソース ファイル\Exmaple\shaders</Filter>
-    </None>
     <None Include="Engine\Siv3DVersion">
       <Filter>リソース ファイル\Engine</Filter>
     </None>
@@ -359,25 +293,8 @@
     <None Include="Engine\shaders\d3d11\DeferredFinalize.ps">
       <Filter>リソース ファイル\Engine\shaders\d3d11</Filter>
     </None>
-    <None Include="Example\Well\Well.wavefrontobj">
-      <Filter>リソース ファイル\Exmaple\Well</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
-    <Media Include="Example\Sound.mp3">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Media>
-    <Media Include="Example\風の丘.mp3">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Media>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Example\test.txt">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Text>
-    <Text Include="Example\素材について.txt">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Text>
     <Text Include="Engine\LogMessages.txt">
       <Filter>リソース ファイル\Engine</Filter>
     </Text>
@@ -398,9 +315,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Font Include="Example\YomogiFont.ttf">
-      <Filter>リソース ファイル\Exmaple</Filter>
-    </Font>
     <Font Include="Engine\fonts\umeplus-p-gothic.ttf">
       <Filter>リソース ファイル\Engine\fonts</Filter>
     </Font>
@@ -447,7 +361,10 @@
     <ClInclude Include="App.h">
       <Filter>app</Filter>
     </ClInclude>
-    <ClInclude Include="Command.h">
+    <ClInclude Include="Simulator.h">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="Controller.h">
       <Filter>app</Filter>
     </ClInclude>
   </ItemGroup>

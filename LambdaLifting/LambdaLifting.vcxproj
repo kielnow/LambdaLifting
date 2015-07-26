@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -12,9 +12,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
-    <ClCompile Include="Command.cpp" />
+    <ClCompile Include="Controller.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Map.cpp" />
+    <ClCompile Include="Simulator.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -22,14 +23,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Engine\splash.png" />
-    <Image Include="Example\brick.jpg" />
-    <Image Include="Example\Earth.jpg" />
-    <Image Include="Example\grass.jpg" />
-    <Image Include="Example\ground.jpg" />
-    <Image Include="Example\Particle.png" />
-    <Image Include="Example\siv3D-kun.png" />
-    <Image Include="Example\Well\Well.jpg" />
-    <Image Include="Example\Windmill.png" />
     <Image Include="icon.ico" />
   </ItemGroup>
   <ItemGroup>
@@ -105,15 +98,6 @@
     <None Include="Engine\shaders\d3d11\TexturedMeshForward_PointLight.vs" />
     <None Include="Engine\shaders\d3d11\TexturedMeshForward_SquaredExponentialFog.ps" />
     <None Include="Engine\Siv3DVersion" />
-    <None Include="Example\Prokofiev.mid" />
-    <None Include="Example\test.csv" />
-    <None Include="Example\test.ini" />
-    <None Include="Example\test.json" />
-    <None Include="Example\Well\Well.mtl" />
-  </ItemGroup>
-  <ItemGroup>
-    <Media Include="Example\Sound.mp3" />
-    <Media Include="Example\風の丘.mp3" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Engine\dll\7-zip32\copying.txt" />
@@ -122,8 +106,6 @@
     <Text Include="Engine\LogMessages.txt" />
     <Text Include="Engine\shaders\d3d11\PS.txt" />
     <Text Include="Engine\shaders\d3d11\VS.txt" />
-    <Text Include="Example\test.txt" />
-    <Text Include="Example\素材について.txt" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="Engine\fonts\mplus\mplus-1p-black.ttf" />
@@ -134,35 +116,6 @@
     <Font Include="Engine\fonts\mplus\mplus-1p-regular.ttf" />
     <Font Include="Engine\fonts\mplus\mplus-1p-thin.ttf" />
     <Font Include="Engine\fonts\umeplus-p-gothic.ttf" />
-    <Font Include="Example\YomogiFont.ttf" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Example\Well\Well.wavefrontobj">
-      <FileType>Document</FileType>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Example\shaders\Default.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\Draw.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\InvertColor.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\Monochrome.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\PoissonDisk.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\RGBSplit.hlsl">
-      <FileType>Document</FileType>
-    </None>
-    <None Include="Example\shaders\Swirl.hlsl">
-      <FileType>Document</FileType>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="Engine\objdetect\faceAnime.xml" />
@@ -171,8 +124,9 @@
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="BuiltinTypes.h" />
-    <ClInclude Include="Command.h" />
+    <ClInclude Include="Controller.h" />
     <ClInclude Include="Map.h" />
+    <ClInclude Include="Simulator.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

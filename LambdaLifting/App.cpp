@@ -6,9 +6,12 @@
 #include "App.h"
 
 #include "Map.h"
-#include "Command.h"
+#include "Simulator.h"
+#include "Controller.h"
 
 namespace {
+
+	const s3d::wchar* TAG = L"[LambdaLifting]";
 
 	const s3d::wchar* CONFIG_FILE = L"config.ini";
 
@@ -18,19 +21,65 @@ namespace {
 namespace app
 {
 
+	//-----------------------------------------------------------------------------
 	//! ctor
+	//-----------------------------------------------------------------------------
 	App::App()
-		: mInitialMapPtr(new Map)
-		, mMapPtr(new Map)
-		, mUndoPos(0)
-		, mInputPtr(new InputCommand)
-		, mState(State::Stop)
+		: mpSimulator(new Simulator)
+		, mpInteractiveController(new InteractiveController)
+		, mpAutoController(new AutoController)
+		, mpGUI(new AppGUI(this))
 	{
 	}
 
+	//-----------------------------------------------------------------------------
 	//! dtor
+	//-----------------------------------------------------------------------------
 	App::~App()
 	{
+	}
+
+	//-----------------------------------------------------------------------------
+	//! INIファイルを保存
+	//-----------------------------------------------------------------------------
+	void App::saveINI()
+	{
+		s3d::INIWriter ini(CONFIG_FILE);
+		ini.write(L"Map", L"filepath", mpSimulator->getFilePath());
+		ini.write(L"GUI", L"commands", mpGUI->getCommands());
+		ini.write(L"GUI", L"speed", mpGUI->getSpeed());
+		ini.write(L"GUI", L"trail", mpGUI->getTrail());
+	}
+
+	//-----------------------------------------------------------------------------
+	//! INIファイルを読み込む
+	//-----------------------------------------------------------------------------
+	void App::loadINI()
+	{
+		s3d::INIReader ini(CONFIG_FILE);
+
+		// マップファイルを読み込む
+		const s3d::String filepath{ ini.getOr<s3d::String>(L"Map.filepath", s3d::String{ L"map\\map1.txt" }) };
+		loadMap(filepath);
+
+		// コマンドを読み込む
+		const auto commands = ini.getOpt<s3d::String>(L"GUI.commands");
+		if (commands)
+		{
+			mpGUI->setCommands(commands.value());
+		}
+
+		// speed
+		if (const auto speed = ini.getOpt<f64>(L"GUI.speed"))
+		{
+			mpGUI->setSpeed(speed.value());
+		}
+
+		// trail
+		if (const auto trail = ini.getOpt<bool>(L"GUI.trail"))
+		{
+			mpGUI->setTrail(trail.value());
+		}
 	}
 
 	//-----------------------------------------------------------------------------
@@ -42,54 +91,26 @@ namespace app
 		s3d::Window::SetTitle(L"Lambda Lifting");
 		s3d::Window::SetStyle(s3d::WindowStyle::Sizeable);
 		s3d::Window::Resize(1600, 900);
-
 		//s3d::Graphics::SetBackground(s3d::Palette::White);
 
-		// アセット登録
-		s3d::TextureAsset::Register(L"cell", L"assets\\cell.png");
-		s3d::FontAsset::Register(L"font", 8, L"Consolas", s3d::FontStyle::Bitmap);
+		// アセットをロード
+		Simulator::loadAsset();
 
-		// GUIをセットアップ
-		mGUIPtr = new s3d::GUI(s3d::GUIStyle::Default);
-		mGUIPtr->setPos(900, 16);
-		mGUIPtr->setTitle(L"Settings");
-
-		mGUIPtr->addln(L"openMap", s3d::GUIButton::Create(L"Open Map"));
-		mGUIPtr->addln(L"reset", s3d::GUIButton::Create(L"Reset"));
-
-		mGUIPtr->add(L"hr1", s3d::GUIHorizontalLine::Create(1));
-		mGUIPtr->horizontalLine(L"hr1").style.color = s3d::Palette::Gray;
-
-		mGUIPtr->add(L"textScale", s3d::GUIText::Create(L"Scale"));
-		mGUIPtr->addln(L"scale", s3d::GUISlider::Create(0.5, 1.5, 1.0));
-
-		mGUIPtr->addln(L"dropShadow", s3d::GUICheckBox::Create({ L"Drop Shadow" }, { 0u }));
-
-		mGUIPtr->addln(L"trail", s3d::GUICheckBox::Create({ L"Show Trail" }));
-		mGUIPtr->add(L"textTrailLength", s3d::GUIText::Create(L"Trail Length"));
-		mGUIPtr->addln(L"trailLength", s3d::GUISlider::Create(1.0, MAX_HISTORY, 100.0));
-
-		mGUIPtr->add(L"hr2", s3d::GUIHorizontalLine::Create(1));
-		mGUIPtr->horizontalLine(L"hr2").style.color = s3d::Palette::Gray;
-
-		mGUIPtr->addln(L"textCommands", s3d::GUIText::Create(L"Commands:0"));
-		//mGUIPtr->addln(L"commands", s3d::GUITextArea::Create(4, 20));
-		mGUIPtr->addln(L"commands", s3d::GUITextArea::Create(4, 20));
-		mGUIPtr->add(L"delete", s3d::GUIButton::Create(L"Delete"));
-		mGUIPtr->add(L"copy", s3d::GUIButton::Create(L"Copy"));
-		mGUIPtr->add(L"save", s3d::GUIButton::Create(L"Save"));
-		mGUIPtr->addln(L"load", s3d::GUIButton::Create(L"Load"));
-
-		mGUIPtr->add(L"play", s3d::GUIButton::Create(L"Play"));
-		mGUIPtr->add(L"stop", s3d::GUIButton::Create(L"Stop", false));
+		// GUI初期化
+		mpGUI->initialize();
 
 		// INIファイルを読み込む
-		s3d::INIReader ini(CONFIG_FILE);
+		loadINI();
 
-		const s3d::String filepath{ ini.getOr<s3d::String>(L"Map.filepath", s3d::String{ L"map\\map1.txt" }) };
-		load(filepath);
-
-		loadCommands();
+		// コマンドライン入力を読み込む
+		const auto argv = s3d::CommandLine::Get();
+		if (argv.size() == 3)
+		{
+			if (loadMap(argv[1])) {
+				mpGUI->setCommands(argv[2]);
+				mpGUI->play();
+			}
+		}
 	}
 
 	//-----------------------------------------------------------------------------
@@ -97,52 +118,8 @@ namespace app
 	//-----------------------------------------------------------------------------
 	void App::finalize()
 	{
-		save();
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Load
-	//-----------------------------------------------------------------------------
-	bool App::load(const s3d::FilePath& filepath)
-	{
-		const bool result = mInitialMapPtr->load(filepath);
-		mFilepath = filepath;
-		mFilename = s3d::FileSystem::BaseName(filepath);
-		reset();
-		return result;
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Undo
-	//-----------------------------------------------------------------------------
-	void App::undo()
-	{
-		mUndoPos = std::min(mUndoPos + 1, (s32)mHistory.size() - 1);
-		*mMapPtr = mHistory.at(mHistory.size() - 1 - mUndoPos);
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Redo
-	//-----------------------------------------------------------------------------
-	void App::redo()
-	{
-		mUndoPos = std::max(0, mUndoPos - 1);
-		*mMapPtr = mHistory.at(mHistory.size() - 1 - mUndoPos);
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Reset
-	//-----------------------------------------------------------------------------
-	void App::reset()
-	{
-		*mMapPtr = *mInitialMapPtr;
-
-		mCommands.clear();
-		mValids.clear();
-
-		mHistory.clear();
-		mHistory.push_back(*mMapPtr);
-		mUndoPos = 0;
+		// INIファイルを保存
+		saveINI();
 	}
 
 	//-----------------------------------------------------------------------------
@@ -150,311 +127,390 @@ namespace app
 	//-----------------------------------------------------------------------------
 	void App::update()
 	{
-		updateGUI();
+		// GUI更新
+		mpGUI->update();
 
-		Command cmd = Command::None;
-		s3d::wchar wc = '?';
+		// シミュレータ更新
+		if (mpAutoController->isPlay())
+		{
+			mpAutoController->update(*mpSimulator);
+		}
+		else
+		{
+			if (s3d::Input::KeyHome.clicked)
+			{
+				mpSimulator->undo(mpSimulator->getCommandNum());
+			}
+			else if (s3d::Input::KeyEnd.clicked)
+			{
+				mpSimulator->redo(mpSimulator->getCommandNum());
+			}
+			else if ((s3d::Input::KeyControl + s3d::Input::KeyZ).clicked)
+			{
+				mpSimulator->undo();
+			}
+			else if((s3d::Input::KeyControl + s3d::Input::KeyY).clicked)
+			{
+				mpSimulator->redo();
+			}
+			else if (s3d::Input::KeyControl.pressed)
+			{
+				const u32 step = s3d::Input::KeyAlt.pressed ? 5 : 1;
 
-		if(isOperational()){
-			// 履歴を操作
-			if(s3d::Input::KeyControl.pressed){
-				if(s3d::Input::KeyZ.clicked){
-					undo();
+				const Command cmd = mpInteractiveController->readCommand();
+				switch (cmd) {
+				case Command::Left:
+					mpSimulator->undo(step);
+					break;
+				case Command::Right:
+					mpSimulator->redo(step);
+					break;
 				}
-				else if(s3d::Input::KeyY.clicked){
-					redo();
-				}
 			}
-		}
-
-		if(mState == State::Stop && isOperational()){
-			// コマンド入力
-			cmd = mInputPtr->command();
-			wc = charOfCommand(cmd);
-		}
-		else if(mState == State::Play){
-			if(mInputCommands.length - mCommands.length > 0){
-				wc = mInputCommands[mCommands.length];
-				cmd = commandOfChar(wc);
-			}
-			else{
-				stop();
-			}
-		}
-
-		bool valid = mMapPtr->update(cmd);
-
-		bool bupdate = false;
-		switch(mState){
-		case State::Play:
-			bupdate = true;
-			break;
-		case State::Stop:
-		case State::Pause:
-			bupdate = cmd != Command::None && valid;
-			break;
-		}
-
-		if(bupdate){
-			// 履歴をリサイズ
-			if(mUndoPos > 0){
-				mCommands.resize(mCommands.length - mUndoPos);
-				mValids.resize(mValids.size() - mUndoPos);
-				mHistory.resize(mHistory.size() - mUndoPos);
-				mUndoPos = 0;
-			}
-
-			// コマンドを保存
-			mCommands.push_back(wc);
-			mValids.push_back(valid);
-
-			// 履歴を保存
-			mHistory.push_back(*mMapPtr);
-			if(mHistory.size() > MAX_HISTORY){
-				mHistory.pop_front();
+			else
+			{
+				mpInteractiveController->update(*mpSimulator);
 			}
 		}
 	}
 
-	//-----------------------------------------------------------------------------
-	//! 操作可能か
-	//-----------------------------------------------------------------------------
-	bool App::isOperational() const
-	{
-		return !mGUIPtr->textArea(L"commands").active && (mState == State::Stop || mState == State::Pause);
-	}
 
 	//-----------------------------------------------------------------------------
-	//! Update GUI
-	//-----------------------------------------------------------------------------
-	void App::updateGUI()
-	{
-		f64 scale = mGUIPtr->slider(L"scale").value;
-		scale = static_cast<f64>(static_cast<s32>(scale * 10.0)) * 0.1f;
-		mGUIPtr->slider(L"scale").setValue(scale);
-		mGUIPtr->text(L"textScale").text = s3d::Format(s3d::PyFmt, L"Scale:{:.0f}%", scale * 100.0);
-
-		f64 trailLength = mGUIPtr->slider(L"trailLength").value;
-		trailLength = static_cast<f64>(static_cast<s32>(trailLength));
-		mGUIPtr->slider(L"trailLength").setRightValue(static_cast<f64>((mCommands.length + 200) / 200 * 200));
-		mGUIPtr->slider(L"trailLength").setValue(trailLength);
-		mGUIPtr->text(L"textTrailLength").text = s3d::Format(s3d::PyFmt, L"Trail Length:{:.0f}", trailLength);
-
-		if(mGUIPtr->button(L"openMap").pushed){
-			stop();
-			if(const auto open = s3d::Dialog::GetOpen({{ L"マップファイル (*.txt;*.map)", L"*.txt;*.map" }})){
-				load(open.value());
-			}
-		}
-		if(mGUIPtr->button(L"reset").pushed){
-			stop();
-			reset();
-		}
-
-		if(mGUIPtr->textArea(L"commands").hasChanged){
-			mGUIPtr->text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", mGUIPtr->textArea(L"commands").text.length);
-		}
-
-		if(mGUIPtr->button(L"delete").pushed){
-			mGUIPtr->textArea(L"commands").setText(L"");
-			mGUIPtr->text(L"textCommands").text = L"Commands:0";
-		}
-		if(mGUIPtr->button(L"copy").pushed){
-			s3d::Clipboard::SetText(mGUIPtr->textArea(L"commands").text);
-		}
-		if(mGUIPtr->button(L"save").pushed){
-			save();
-		}
-		if(mGUIPtr->button(L"load").pushed){
-			loadCommands();
-		}
-
-		if(mGUIPtr->button(L"play").pushed){
-			switch(mState){
-			case State::Play:
-				pause();
-				break;
-			case State::Pause:
-				resume();
-				break;
-			case State::Stop:
-				play();
-				break;
-			}
-		}
-
-		if(mGUIPtr->button(L"stop").pushed){
-			stop();
-		}
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Play
-	//-----------------------------------------------------------------------------
-	void App::play()
-	{
-		s3d::GUITextAreaWrapper textArea = mGUIPtr->textArea(L"commands");
-
-		mGUIPtr->button(L"play").text = L"Pause";
-
-		textArea.enabled = false;
-		mGUIPtr->button(L"delete").enabled = false;
-		mGUIPtr->button(L"stop").enabled = true;
-
-		mInputCommands = textArea.text;
-		reset();
-
-		mState = State::Play;
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Pause
-	//-----------------------------------------------------------------------------
-	void App::pause()
-	{
-		mGUIPtr->button(L"play").text = L"Resume";
-		mState = State::Pause;
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Resume
-	//-----------------------------------------------------------------------------
-	void App::resume()
-	{
-		mGUIPtr->button(L"play").text = L"Pause";
-		mState = State::Play;
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Stop
-	//-----------------------------------------------------------------------------
-	void App::stop()
-	{
-		if(mState == State::Stop){
-			return;
-		}
-
-		mGUIPtr->button(L"play").text = L"Play";
-
-		mGUIPtr->textArea(L"commands").enabled = true;
-		mGUIPtr->button(L"delete").enabled = true;
-		mGUIPtr->button(L"stop").enabled = false;
-		mState = State::Stop;
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Save Commands
-	//-----------------------------------------------------------------------------
-	void App::save()
-	{
-		s3d::INIWriter ini(CONFIG_FILE);
-
-		ini.write(L"Map", L"filepath", mFilepath);
-
-		ini.write(L"GUI", L"commands", mGUIPtr->textArea(L"commands").text);
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Load Commands
-	//-----------------------------------------------------------------------------
-	void App::loadCommands()
-	{
-		s3d::INIReader ini(CONFIG_FILE);
-
-		const auto commands = ini.getOpt<s3d::String>(L"GUI.commands");
-		if(commands){
-			mGUIPtr->textArea(L"commands").setText(commands.value());
-		}
-	}
-
-	//-----------------------------------------------------------------------------
-	//! Draw
+	//! 描画
 	//-----------------------------------------------------------------------------
 	void App::draw()
 	{
-		const s3d::Font font = s3d::FontAsset(L"font");
+		s3d::RectF rect;
 
-		s3d::RectF rect{ 0, 0, 0, 0 };
+		// マップ情報を描画
+		rect = mpSimulator->drawMapInfo();
 
-		// 情報を描画
-		s3d::String s;
-		s += s3d::Format(s3d::PyFmt, L"Map: {}  ", mFilename);
-		s += s3d::Format(s3d::PyFmt, L"Size: ({},{})  ", mMapPtr->width(), mMapPtr->height());
-		s += s3d::Format(s3d::PyFmt, L"Robot: ({},{})  ", mMapPtr->robotPos().x, mMapPtr->height() - mMapPtr->robotPos().y);
-		s += s3d::Format(s3d::PyFmt, L"Lambda: {1}/{0}  ", mMapPtr->lambda(), mMapPtr->lambdaCollected());
-		s += s3d::Format(s3d::PyFmt, L"StepCount: {}  ", mMapPtr->stepCount());
-		s += s3d::Format(s3d::PyFmt, L"Score: {}  ", mMapPtr->score());
-		s += s3d::Format(s3d::PyFmt, L"Condition: {}\n", stringOfCondition(mMapPtr->condition()));
-		s += s3d::Format(s3d::PyFmt, L"Water: {}  ", mMapPtr->water());
-		s += s3d::Format(s3d::PyFmt, L"Flooding: {1}/{0}  ", mMapPtr->flooding(), mMapPtr->floodingCount());
-		s += s3d::Format(s3d::PyFmt, L"Waterproof: {1}/{0}\n", mMapPtr->waterproof(), mMapPtr->waterproofCount());
-		s += s3d::Format(s3d::PyFmt, L"Growth: {1}/{0}  ", mMapPtr->growth(), mMapPtr->growthCount());
-		s += s3d::Format(s3d::PyFmt, L"Razor: {}  ", mMapPtr->razor());
-		s += s3d::Format(s3d::PyFmt, L"Beard: {}  ", mMapPtr->beard());
-		rect = font.draw(s);
-
-		// マップを描画
-		const s3d::Vec2 ofs = rect.bl;
-		const f64 scale = mGUIPtr->slider(L"scale").value;
-		// ドロップシャドウを描画
-		if(mGUIPtr->checkBox(L"dropShadow").checked(0))
 		{
-			mMapPtr->drawShadow(ofs, scale);
-		}
-		rect = mMapPtr->draw(ofs, scale);
+			const s3d::Vec2 ofs = rect.bl;
+			const f64 scale = mpGUI->getScale();
 
-		// 軌跡を描画
-		if(mGUIPtr->checkBox(L"trail").checked(0)){
-			s3d::Graphics2D::SetBlendState(s3d::BlendState::Additive);
-
-			const s32 length = static_cast<s32>(mGUIPtr->slider(L"trailLength").value);
-			const s3d::Vec2 half{ s3d::Math::Round(Map::CellSize * 0.5 * scale) };
-			s3d::Vec2 pos1{ mMapPtr->robotPos() };
-			s3d::Vec2 pos2{ pos1 };
-			for(s32 i = 0; i < length; ++i){
-				// 履歴からロボットの位置の取得
-				s32 index = mHistory.size() - 1 - mUndoPos - i;
-				if(index < 0){
-					break;
-				}
-				pos2 = mHistory[index].robotPos();
-
-				const s3d::Color color{ s3d::Math::Lerp(s3d::Palette::Red, s3d::Palette::Yellow, (f32)i / length) };
-				s3d::Line(ofs + half + pos2 * Map::CellSize * scale, ofs + half + pos1 * Map::CellSize * scale).drawArrow(2, { 8, 16 }, color);
-				pos1 = pos2;
+			// ドロップシャドウを描画
+			if (mpGUI->getDropShadow())	{
+				mpSimulator->drawShadow(ofs, scale);
 			}
 
-			s3d::Graphics2D::SetBlendState(s3d::BlendState::Default);
+			// マップを描画
+			mpSimulator->draw(ofs, scale);
+
+			// 軌跡を描画
+			if (mpGUI->getTrail()) {
+				mpSimulator->drawTrail(mpGUI->getAllTrail() ? -1 : mpGUI->getTrailLength(), ofs, scale);
+			}
+
+			rect = mpSimulator->calcRect(ofs, scale);
 		}
 
 		// コマンドを描画
-		{
-			s = s3d::Format(s3d::PyFmt, L"CommandCount: {}  ", mCommands.length - mUndoPos);
-			rect = font.draw(s, rect.bl);
-
-			s3d::wchar wstr[2] = {};
-			s3d::Color color{ s3d::Palette::White };
-			u32 x = 0, y = 0;
-			for(u32 i = 0; i < mCommands.length; ++i){
-				wstr[0] = mCommands[i];
-
-				if(i >= mCommands.length - mUndoPos){
-					color = s3d::Palette::Dimgray;
-				}
-				else{
-					color = mValids[i] ? s3d::Palette::White : s3d::Palette::Red;
-				}
-				font.draw(wstr, s3d::Vec2(rect.x + (f64)font.size * x, rect.y + rect.h + (f64)font.size * 2.0 * y), color);
-				if(i % 100 == 99){
-					x = 0;
-					y++;
-				}
-				else{
-					x++;
-				}
-			}
-		}
+		rect = mpSimulator->drawCommands(rect.bl);
 
 		//s3d::Circle(s3d::Mouse::Pos(), 50).draw({ 255, 0, 0, 127 });
 	}
+
+	//-----------------------------------------------------------------------------
+	//! マップを読み込む
+	//-----------------------------------------------------------------------------
+	bool App::loadMap(const s3d::String& filepath)
+	{
+		mpGUI->setFileName(s3d::FileSystem::FileName(filepath));
+
+		if (mpSimulator->loadMap(filepath)) {
+			const s3d::Vec2& csz{ s3d::Window::Size() * 0.8 };
+			const s3d::Vec2& sz{ mpSimulator->calcRect().size };
+			mpGUI->setScale(std::min(csz.x / sz.x, csz.y / sz.y));
+
+			saveINI();
+
+			return true;
+		}
+		LOG(TAG, L"マップファイルの読み込みに失敗しました。", filepath);
+		return false;
+	}
+
+	//-----------------------------------------------------------------------------
+	//! リセット
+	//-----------------------------------------------------------------------------
+	void App::reset()
+	{
+		mpAutoController->stop();
+		mpSimulator->reset();
+	}
+
+
+#pragma region AppGUI
+
+	//-----------------------------------------------------------------------------
+	//! ctor
+	//-----------------------------------------------------------------------------
+	AppGUI::AppGUI(class App* parent)
+		: parent(parent)
+		, gui(s3d::GUIStyle::Default)
+		, mDirtyScale(false)
+		, mDirtyPlay(false)
+		, mDirtySpeed(false)
+	{
+	}
+
+	//-----------------------------------------------------------------------------
+	//! dtor
+	//-----------------------------------------------------------------------------
+	AppGUI::~AppGUI()
+	{
+	}
+
+	//-----------------------------------------------------------------------------
+	//! 初期化
+	//-----------------------------------------------------------------------------
+	void AppGUI::initialize()
+	{
+		gui.setPos(900, 16);
+		gui.setTitle(L"Settings");
+		gui.style.background.color->setAlpha(224);
+
+		gui.add(L"loadMap", s3d::GUIButton::Create(L"Load Map"));
+		gui.addln(L"filename", s3d::GUIText::Create(L"File Name"));
+		gui.addln(L"reset", s3d::GUIButton::Create(L"Reset"));
+
+		gui.add(L"hr1", s3d::GUIHorizontalLine::Create(1));
+		gui.horizontalLine(L"hr1").style.color = s3d::Palette::Gray;
+
+		gui.add(L"textScale", s3d::GUIText::Create(L"Scale"));
+		gui.addln(L"scale", s3d::GUISlider::Create(0.5, 1.5, 1.0));
+		mDirtyScale = true;
+
+		gui.addln(L"dropShadow", s3d::GUICheckBox::Create({ L"Drop Shadow" }, { 0u }));
+
+		gui.addln(L"trail", s3d::GUICheckBox::Create({ L"Show Trail", L"All Trail" }, { 1u }));
+		gui.add(L"textTrailLength", s3d::GUIText::Create(L"Trail Length"));
+		gui.addln(L"trailLength", s3d::GUISlider::Create(1, 100, 10));
+
+		gui.add(L"hr2", s3d::GUIHorizontalLine::Create(1));
+		gui.horizontalLine(L"hr2").style.color = s3d::Palette::Gray;
+
+		gui.addln(L"textCommands", s3d::GUIText::Create(L"Commands:0"));
+		gui.addln(L"commands", s3d::GUITextArea::Create(4, 20));
+		gui.add(L"replace", s3d::GUIButton::Create(L"Replace"));
+		gui.addln(L"normalize", s3d::GUIButton::Create(L"Normalize"));
+
+		gui.add(L"play", s3d::GUIButton::Create(L"Play"));
+		gui.addln(L"stop", s3d::GUIButton::Create(L"Stop", false));
+		gui.add(L"textSpeed", s3d::GUIText::Create(L"Speed"));
+		gui.addln(L"speed", s3d::GUISlider::Create(1, 5, 3));
+		mDirtySpeed = true;
+	}
+
+	//-----------------------------------------------------------------------------
+	//! 初期化
+	//-----------------------------------------------------------------------------
+	void AppGUI::finalize()
+	{
+	}
+
+	//-----------------------------------------------------------------------------
+	//! 初期化
+	//-----------------------------------------------------------------------------
+	void AppGUI::update()
+	{
+		//-----------------------------------------------------------------------------
+		// ショートカットキー操作
+
+		if (s3d::Input::KeyF1.clicked)
+		{
+			gui.show(!gui.style.visible);
+		}
+		else if (s3d::Input::KeyF5.clicked)
+		{
+			play();
+		}
+		else if (s3d::Input::KeyControl.pressed) {
+			if (s3d::Input::KeyR.clicked)
+			{
+				parent->reset();
+			}
+			else if (s3d::Input::KeyT.clicked)
+			{
+				setTrail(!getTrail());
+			}
+			else if (s3d::Input::KeyUp.clicked)
+			{
+				setSpeed(getSpeed() + 1);
+			}
+			else if (s3d::Input::KeyDown.clicked)
+			{
+				setSpeed(getSpeed() - 1);
+			}
+		}
+
+		if (gui.textArea(L"commands").active)
+		{
+			if (s3d::Input::KeyDelete.clicked)
+			{
+				setCommands(L"");
+			}
+			else if ((s3d::Input::KeyControl + s3d::Input::KeyC).clicked)
+			{
+				s3d::Clipboard::SetText(gui.textArea(L"commands").text);
+			}
+		}
+
+		//-----------------------------------------------------------------------------
+		// テキスト更新
+
+		// scale
+		if (gui.slider(L"scale").hasChanged || mDirtyScale)
+		{
+			mDirtyScale = false;
+
+			auto slider = gui.slider(L"scale");
+			f64 scale = slider.value;
+			scale = static_cast<f64>(static_cast<s32>(scale * 10.0)) * 0.1f;
+			slider.setValue(scale);
+			gui.text(L"textScale").text = s3d::Format(s3d::PyFmt, L"Scale:{:.0f}%", scale * 100);
+		}
+
+		// trailLength
+		if (gui.slider(L"trailLength").hasChanged)
+		{
+			auto slider = gui.slider(L"trailLength");
+			const s32 trailLength = slider.valueInt;
+			const u32 num = parent->mpSimulator->getHistoryNum();
+			const u32 unit = num > 100 ? 100 : (num > 20 ? 10 : 20);
+			slider.setRightValue((num + unit) / unit * unit);
+			slider.setValue(trailLength);
+			gui.text(L"textTrailLength").text = s3d::Format(s3d::PyFmt, L"Trail Length:{:d}", trailLength);
+		}
+
+		// commands
+		if (gui.textArea(L"commands").hasChanged)
+		{
+			gui.text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", gui.textArea(L"commands").text.length);
+		}
+
+		// play
+		if (parent->mpAutoController->isStop() && mDirtyPlay)
+		{
+			mDirtyPlay = false;
+
+			gui.textArea(L"commands").enabled = true;
+			gui.button(L"normalize").enabled = true;
+			gui.button(L"stop").enabled = false;
+
+			gui.button(L"play").text = L"Play";
+		}
+
+		// speed
+		if (gui.slider(L"speed").hasChanged || mDirtySpeed)
+		{
+			mDirtySpeed = false;
+
+			auto slider = gui.slider(L"speed");
+			const f64 speed = static_cast<f64>(slider.valueInt);
+			const f64 speedMax = slider.rightValue;
+			const f64 speedMin = slider.leftValue;
+			slider.setValue(speed);
+			gui.text(L"textSpeed").text = s3d::Format(s3d::PyFmt, L"Speed:{:.0f}x", speed);
+			//gui.text(L"textSpeed").text = s3d::Format(s3d::PyFmt, L"Speed:{:.0f}x", speed);
+			const f64 norm = (speedMax - speed) / (speedMax - speedMin);
+			parent->mpAutoController->setInterval( static_cast<u32>(10 * norm) );
+		}
+
+		//-----------------------------------------------------------------------------
+		// ボタン操作
+
+		if (gui.button(L"loadMap").pushed)
+		{
+			parent->mpAutoController->stop();
+
+			if (const auto open = s3d::Dialog::GetOpen({{ L"マップファイル (*.txt;*.map)", L"*.txt;*.map" }}))	{
+				parent->loadMap(open.value());
+			}
+		}
+		else if(gui.button(L"reset").pushed)
+		{
+			parent->reset();
+		}
+		else if (gui.button(L"replace").pushed)
+		{
+			const s3d::String& cmds = parent->mpSimulator->getCommands();
+			if (!cmds.isEmpty) {
+				setCommands(cmds);
+			}
+		}
+		else if (gui.button(L"normalize").pushed)
+		{
+			const s3d::String& cmds = parent->mpAutoController->getValidComamnds();
+			if (!cmds.isEmpty) {
+				setCommands(cmds);
+			}
+		}
+		else if (gui.button(L"play").pushed)
+		{
+			play();
+		}
+		else if (gui.button(L"stop").pushed)
+		{
+			parent->mpAutoController->stop();
+			gui.button(L"play").text = L"Play";
+		}
+	}
+
+	//-----------------------------------------------------------------------------
+	// 再生
+	//-----------------------------------------------------------------------------
+	void AppGUI::play()
+	{
+		mDirtyPlay = true;
+
+		gui.textArea(L"commands").enabled = false;
+		gui.button(L"normalize").enabled = false;
+		gui.button(L"stop").enabled = true;
+
+		s3d::String& text = gui.button(L"play").text;
+		if (text == L"Pause")
+		{
+			parent->mpAutoController->pause();
+			text = L"Resume";
+		}
+		else
+		{
+			if (text == L"Play") {
+				parent->mpAutoController->setCommand(gui.textArea(L"commands").text);
+			}
+
+			parent->mpAutoController->play();
+			text = L"Pause";
+		}
+	}
+
+	//-----------------------------------------------------------------------------
+	// Getter
+	//-----------------------------------------------------------------------------
+	f64 AppGUI::getScale() const { return gui.slider(L"scale").value; }
+	bool AppGUI::getDropShadow() const { return gui.checkBox(L"dropShadow").checked(0); }
+	bool AppGUI::getTrail() const { return gui.checkBox(L"trail").checked(0); }
+	bool AppGUI::getAllTrail() const { return gui.checkBox(L"trail").checked(1); }
+	s32 AppGUI::getTrailLength() const { return gui.slider(L"trailLength").valueInt; }
+	const s3d::String& AppGUI::getCommands() const { return gui.textArea(L"commands").text; }
+	f64 AppGUI::getSpeed() const { return gui.slider(L"speed").value; }
+
+	//-----------------------------------------------------------------------------
+	// Getter
+	//-----------------------------------------------------------------------------
+	void AppGUI::setFileName(const s3d::String& filename){ gui.text(L"filename").text = filename; }
+	void AppGUI::setScale(f64 scale){ gui.slider(L"scale").setValue(scale); mDirtyScale = true; }
+	void AppGUI::setTrail(bool trail){ return gui.checkBox(L"trail").check(0, trail); }
+	void AppGUI::setCommands(const s3d::String& cmds)
+	{
+		gui.textArea(L"commands").setText(cmds);
+		gui.text(L"textCommands").text = s3d::Format(s3d::PyFmt, L"Commands:{}", cmds.length);
+		parent->saveINI();
+	}
+	void AppGUI::setSpeed(f64 speed){ gui.slider(L"speed").setValue(speed); mDirtySpeed = true; }
+
+#pragma endregion
+
 }

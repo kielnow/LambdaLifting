@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "Map.h"
-
 namespace app
 {
 
@@ -19,56 +17,67 @@ namespace app
 		~App();
 
 		void initialize();
+
 		void finalize();
 
 		void update();
+
 		void draw();
 
 	private:
-		void updateGUI();
+		void loadINI();
+		void saveINI();
 
-		bool load(const s3d::FilePath& filepath);
+		bool loadMap(const s3d::String& filepath);
 
-		void undo();
-		void redo();
 		void reset();
 
+	private:
+		std::unique_ptr<class Simulator> mpSimulator;
+		std::unique_ptr<class InteractiveController> mpInteractiveController;
+		std::unique_ptr<class AutoController> mpAutoController;
+		std::unique_ptr<class AppGUI> mpGUI;
+
+		friend class AppGUI;
+	};
+
+	//===================================================================================
+	//! @class AppGUI
+	//===================================================================================
+	class AppGUI
+	{
+	public:
+		AppGUI(class App* parent);
+		~AppGUI();
+
+		void initialize();
+
+		void finalize();
+
+		void update();
+
+		f64 getScale() const;
+		bool getDropShadow() const;
+		bool getTrail() const;
+		bool getAllTrail() const;
+		s32 getTrailLength() const;
+		const s3d::String& getCommands() const;
+		f64 getSpeed() const;
+
+		void setFileName(const s3d::String& filename);
+		void setScale(f64 scale);
+		void setTrail(bool trail);
+		void setCommands(const s3d::String& cmds);
+		void setSpeed(f64 speed);
+
 		void play();
-		void pause();
-		void resume();
-		void stop();
-
-		void save();
-		void loadCommands();
-
-		bool isOperational() const;
-
-		static const u32 MAX_HISTORY = 1024;
-
-		enum class State {
-			Play,
-			Pause,
-			Stop,
-		};
 
 	private:
-		s3d::FilePath mFilepath;
-		s3d::String mFilename;
-		std::unique_ptr<class Map> mInitialMapPtr;
-		std::unique_ptr<class Map> mMapPtr;
-
-		s3d::String mCommands;
-		std::deque<class Map> mHistory;
-		s32 mUndoPos;
-
-		std::vector<bool> mValids;
-
-		s3d::String mInputCommands;
-
-		std::unique_ptr<class InputCommand> mInputPtr;
-		class s3d::GUI* mGUIPtr;
-
-		State mState;
+		class App* parent;
+		s3d::GUI gui;
+		bool mDirtyScale;
+		bool mDirtyPlay;
+		bool mDirtySpeed;
 	};
 
 }
