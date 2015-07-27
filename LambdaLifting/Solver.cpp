@@ -24,7 +24,7 @@ namespace {
 		app::Command::Left,
 		app::Command::Right,
 		//app::Command::Abort,
-		//app::Command::Shave,
+		app::Command::Shave,
 	};
 
 	const app::Command getCommandInv(app::Command cmd)
@@ -59,13 +59,16 @@ namespace app
 		State(const State& state)
 			: simulator(state.simulator), pass(state.pass)
 		{
+			const auto& map = simulator.getMap();
+			pass[map.robotPos.y][map.robotPos.x] = true;
 		}
 
 		State(const Simulator& _simulator)
 			: simulator(_simulator)
 		{
-			const auto& c = simulator.getMap().cell;
-			pass.resize(c.width, c.height, false);
+			const auto& map = simulator.getMap();
+			pass.resize(map.cell.width, map.cell.height, false);
+			pass[map.robotPos.y][map.robotPos.x] = true;
 		}
 	};
 
@@ -153,13 +156,14 @@ namespace app
 
 				if (result && 
 					map.condition != Condition::Losing &&
-					!ps->pass[map.robotPos.y][map.robotPos.x])
+					(/*cmd == Command::Wait || */!ps->pass[map.robotPos.y][map.robotPos.x]))
 				{
 					State* const pnew = new State(*ps);
 
 					if (map.lambdaCollected > lambdaCollected)
 					{
 						pnew->pass.fill(false);
+						pnew->pass[map.robotPos.y][map.robotPos.x] = true;
 
 #if 0
 						while (!q.empty()) {
