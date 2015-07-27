@@ -107,7 +107,7 @@ namespace app
 
 		water = 0;
 		floodingCount = 0;
-		waterproofCount = 0;
+		waterproofCount = 10;
 
 		growthCount = 0;
 		razor = 0;

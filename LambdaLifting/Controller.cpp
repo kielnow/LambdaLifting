@@ -193,20 +193,20 @@ namespace app
 	//-----------------------------------------------------------------------------
 	//! ÉRÉ}ÉìÉhÇê›íË
 	//-----------------------------------------------------------------------------
-	void AutoController::setCommand(const s3d::String& cmds)
+	void AutoController::setCommand(const s3d::String& cmds, bool reset)
 	{
 		mCommands = cmds;
 		mState = State::Reset;
-		mReset = true;
+		mReset = reset;
 	}
 
 	//-----------------------------------------------------------------------------
 	//! çƒê∂
 	//-----------------------------------------------------------------------------
-	void AutoController::play()
+	void AutoController::play(bool reset)
 	{
 		if (mState == State::Stop) {
-			mReset = true;
+			mReset = reset;
 		}
 		mState = State::Play;
 	}

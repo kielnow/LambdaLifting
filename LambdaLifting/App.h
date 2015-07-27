@@ -36,6 +36,7 @@ namespace app
 		std::unique_ptr<class Simulator> mpSimulator;
 		std::unique_ptr<class InteractiveController> mpInteractiveController;
 		std::unique_ptr<class AutoController> mpAutoController;
+		std::unique_ptr<class Solver> mpSolver;
 		std::unique_ptr<class AppGUI> mpGUI;
 
 		friend class AppGUI;

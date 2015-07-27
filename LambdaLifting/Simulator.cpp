@@ -49,6 +49,60 @@ namespace app
 	}
 
 	//-----------------------------------------------------------------------------
+	//! copy ctor
+	//-----------------------------------------------------------------------------
+	Simulator::Simulator(const class Simulator& simulator)
+	{
+		mFilePath = simulator.mFilePath;
+		mFileName = simulator.mFileName;
+		mpMapInfo = new MapInfo(*simulator.mpMapInfo);
+		mpInitialMap = new Map(*simulator.mpInitialMap);
+		mpMap = new Map(*simulator.mpMap);
+
+		mpInitialMap->info = mpMapInfo;
+		mpMap->info = mpMapInfo;
+
+		mCommands = simulator.mCommands;
+		mCommandPos = simulator.mCommandPos;
+		mValids = simulator.mValids;
+		for (auto* p : simulator.mHistory) {
+			Map* pmap{ new Map(*p) };
+			pmap->info = mpMapInfo;
+			mHistory.push_back(pmap);
+		}
+		mHistoryPos = simulator.mHistoryPos;
+		mHistoryMax = simulator.mHistoryMax;
+	}
+
+	//-----------------------------------------------------------------------------
+	//! Assignment operator
+	//-----------------------------------------------------------------------------
+	class Simulator& Simulator::operator=(const class Simulator& simulator)
+	{
+		clear();
+
+		delete mpMap;
+		delete mpInitialMap;
+		delete mpMapInfo;
+
+		mFilePath = simulator.mFilePath;
+		mFileName = simulator.mFileName;
+		mpMapInfo = new MapInfo(*simulator.mpMapInfo);
+		mpInitialMap = new Map(*simulator.mpInitialMap);
+		mpMap = new Map(*simulator.mpMap);
+
+		mCommands = simulator.mCommands;
+		mCommandPos = simulator.mCommandPos;
+		mValids = simulator.mValids;
+		for (auto* p : simulator.mHistory)
+			mHistory.push_back(new Map(*p));
+		mHistoryPos = simulator.mHistoryPos;
+		mHistoryMax = simulator.mHistoryMax;
+
+		return *this;
+	}
+
+	//-----------------------------------------------------------------------------
 	//! クリア
 	//-----------------------------------------------------------------------------
 	void Simulator::clear(bool all)
@@ -249,6 +303,13 @@ namespace app
 		return getMap().condition == Condition::Playing;
 	}
 
+	//-----------------------------------------------------------------------------
+	//! 最後のコマンドを取得
+	//-----------------------------------------------------------------------------
+	Command Simulator::getLastCommand() const
+	{
+		return commandOfChar(mCommands[mCommandPos - 1]);
+	}
 
 #pragma region Update Operation
 
@@ -859,7 +920,7 @@ namespace app
 			pos2 = mHistory[mHistoryPos - 2 - i]->robotPos;
 
 			s3d::Color color{ s3d::Math::Lerp(s3d::Palette::Red, s3d::Palette::Yellow, (f64)i / length) };
-			color.a = 255 * s3d::Math::Lerp(1.0, 0.5, (f64)i / length);
+			color.a = static_cast<u32>(255 * s3d::Math::Lerp(1.0, 0.5, (f64)i / length));
 			s3d::Line(pos + half + pos2 * kCellSize * scale, pos + half + pos1 * kCellSize * scale).drawArrow(2, { 8, 16 }, color);
 			pos1 = pos2;
 		}

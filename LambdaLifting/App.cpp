@@ -8,6 +8,7 @@
 #include "Map.h"
 #include "Simulator.h"
 #include "Controller.h"
+#include "Solver.h"
 
 namespace {
 
@@ -28,6 +29,7 @@ namespace app
 		: mpSimulator(new Simulator)
 		, mpInteractiveController(new InteractiveController)
 		, mpAutoController(new AutoController)
+		, mpSolver(new Solver)
 		, mpGUI(new AppGUI(this))
 	{
 	}
@@ -301,6 +303,11 @@ namespace app
 		gui.add(L"textSpeed", s3d::GUIText::Create(L"Speed"));
 		gui.addln(L"speed", s3d::GUISlider::Create(1, 5, 3));
 		mDirtySpeed = true;
+
+		gui.add(L"hr3", s3d::GUIHorizontalLine::Create(1));
+		gui.horizontalLine(L"hr3").style.color = s3d::Palette::Gray;
+
+		gui.add(L"solve", s3d::GUIButton::Create(L"Solve"));
 	}
 
 	//-----------------------------------------------------------------------------
@@ -456,6 +463,14 @@ namespace app
 			parent->mpAutoController->stop();
 			gui.button(L"play").text = L"Play";
 		}
+		else if (gui.button(L"solve").pushed)
+		{
+			const auto& filepath = parent->mpSimulator->getFilePath();
+			const s3d::String cmds{ parent->mpSolver->solve(filepath) };
+
+			setCommands(cmds);
+		}
+
 	}
 
 	//-----------------------------------------------------------------------------

@@ -9,6 +9,7 @@ namespace app
 
 	// Forward declaration
 	enum class Command;
+	enum class Condition : u8;
 	struct Map;
 
 	//===================================================================================
@@ -19,6 +20,10 @@ namespace app
 	public:
 		Simulator();
 		~Simulator();
+
+		Simulator(const class Simulator& simulator);
+
+		class Simulator& operator=(const class Simulator& simulator);
 
 		void clear(bool all = true);
 
@@ -62,6 +67,7 @@ namespace app
 		const s3d::String& getCommands() const { return mCommands; }
 		u32 getCommandNum() const { return mCommands.length; }
 		u32 getHistoryNum() const { return mHistory.size(); }
+		Command getLastCommand() const;
 
 	private:
 		//! @name Auxiliary function

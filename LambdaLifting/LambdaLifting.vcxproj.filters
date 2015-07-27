@@ -71,6 +71,9 @@
     <ClCompile Include="Controller.cpp">
       <Filter>app</Filter>
     </ClCompile>
+    <ClCompile Include="Solver.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon.ico">
@@ -365,6 +368,9 @@
       <Filter>app</Filter>
     </ClInclude>
     <ClInclude Include="Controller.h">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="Solver.h">
       <Filter>app</Filter>
     </ClInclude>
   </ItemGroup>

@@ -56,9 +56,9 @@ namespace app
 
 		void update(class Simulator& simulator) override;
 
-		void setCommand(const s3d::String& cmds);
+		void setCommand(const s3d::String& cmds, bool reset = true);
 
-		void play();
+		void play(bool reset = true);
 		void pause();
 		void stop();
 
